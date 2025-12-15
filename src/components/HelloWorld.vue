@@ -49,11 +49,10 @@ const imageIndex = ref([])
 
 const randomIndex = () => {
   max.value = previews.value.length
+  imageIndex.value.splice(0, imageIndex.value.length)
   if (!max) {
-    imageIndex.value = []
     return
   }
-  imageIndex.value.splice(0, imageIndex.value.length)
 
   for (let i = 0; i < 8; i++) {
     r.value = Math.floor(Math.random() * (max.value - min.value)) + min.value
@@ -85,7 +84,7 @@ watch(currentIndex, () => {
       randomIndex()
       setTimeout(() => {
         run()
-      }, 1950);
+      }, 2050);
     }
   }
   // showCountDown.value = 8 - currentIndex.value
@@ -98,8 +97,7 @@ const stop = () => {
 }
 // 清除計時器
 onUnmounted(() => {
-  clearInterval(intervalId.value)
-  intervalId.value = 0
+  stop()
 })
 
 // ==============
@@ -186,7 +184,7 @@ const gameStart = () => {
     <div class="row show-area" v-if="imageIndex.length > 0 && gameStatus">
       <template v-for="(i, index) in imageIndex" :key="index">
         <div class="col-3" :class="`${currentIndex === index ? 'highlight' : 'show'}`">
-          <img class="image-item" :id="`image-${index}`" :src="previews[i]?.url" :alt="previews[i]?.name" />
+          <img class="image-item" :src="previews[i]?.url" :alt="previews[i]?.name" />
         </div>
       </template>
     </div>
