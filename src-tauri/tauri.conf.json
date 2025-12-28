@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "vue-animal-animal",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "app.vue-animal-animal",
   "build": {
     "frontendDist": "../dist",

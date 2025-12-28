@@ -7,6 +7,38 @@ defineProps({
 })
 
 
+// ==============
+// 音樂播放控制
+const audioRef = ref(null)
+const isPlaying = ref(false)
+const currentTime = ref(0)
+const duration = ref(0)
+const currentAudioSrc = animalMusic
+
+function togglePlay() {
+  if (audioRef.value) {
+    if (isPlaying.value) {
+      audioRef.value.pause()
+    } else {
+      const p = audioRef.value.play()
+      if (p && p.then) {
+        p.then(() => { isPlaying.value = true }).catch((err) => { console.warn('play failed', err) })
+      } else {
+        isPlaying.value = true
+      }
+    }
+  }
+}
+
+function updateTime() {
+  currentTime.value = audioRef.value.currentTime
+}
+
+function loadedMetadata() {
+  duration.value = audioRef.value.duration
+}
+
+// ============
 // 上傳圖片
 const previews = ref([])
 const uploadFileRef = ref(null)
@@ -65,88 +97,72 @@ const randomIndex = () => {
 // highlight
 const currentIndex = ref(-1)
 const intervalId = ref(0)
+const timeoutId = ref(0)
 const run = () => {
   if (gameStatus.value) {
     intervalId.value = setInterval(() => {
-      currentIndex.value < 8 ? currentIndex.value++ : currentIndex.value = 0;
-    }, 350);
+      currentIndex.value < 8 ? currentIndex.value++ : currentIndex.value = 0
+    }, 350)
   }
 }
 
-// 倒數讀秒
-const showCountDown = ref(0)
-
 // 監聽 currentIndex 變化，更新倒數讀秒，並在到達 8 時重置動畫
 watch(currentIndex, () => {
-  if (currentIndex.value === 8) {
+  if (currentIndex.value === 8 && gameStatus.value && isPlaying.value) {
     stop()
     if (previews.value.length) {
       randomIndex()
-      setTimeout(() => {
+      timeoutId.value = setTimeout(() => {
         run()
-      }, 2050);
+      }, 2050)
     }
   }
-  // showCountDown.value = 8 - currentIndex.value
 })
 
 // 結束倒數讀秒
 const stop = () => {
-  clearInterval(intervalId.value);
+  clearInterval(intervalId.value)
   intervalId.value = 0
+  clearTimeout(timeoutId.value)
+  timeoutId.value = 0
 }
+
 // 清除計時器
 onUnmounted(() => {
   stop()
 })
 
 // ==============
-const audioRef = ref(null);
-const isPlaying = ref(false);
-const currentTime = ref(0);
-const duration = ref(0);
-const currentAudioSrc = animalMusic
-
-function togglePlay() {
-  if (audioRef.value) {
-    if (isPlaying.value) {
-      audioRef.value.pause()
-    } else {
-      const p = audioRef.value.play()
-      if (p && p.then) {
-        p.then(() => { isPlaying.value = true }).catch((err) => { console.warn('play failed', err) })
-      } else {
-        isPlaying.value = true
-      }
-    }
+const gameStatus = ref(false)
+const gameStart = () => {
+  stop()
+  // 檢查是否有上傳圖片
+  if (previews.value.length) {
+    gameStatus.value = true
+    togglePlay() // 開始播放音樂
+    setTimeout(() => {
+      run()
+    }, 4000)
+  } else {
+    alert('請先上傳圖片！')
   }
 }
 
-function updateTime() {
-  currentTime.value = audioRef.value.currentTime;
+const hardRefresh = () => {
+  stop()
+  audioRef.value.pause()
+  audioRef.value.currentTime = 0
+  window.location.reload()
 }
 
-function loadedMetadata() {
-  duration.value = audioRef.value.duration;
-}
-
-onMounted(() => {
-  // 初始狀態設定 (可選)
-});
-
-// ==============
-const gameStatus = ref(false)
-const gameStart = () => {
-  // 檢查是否有上傳圖片
+const replay = () => {
+  stop()
+  audioRef.value.pause()
+  audioRef.value.currentTime = 0
+  gameStatus.value = false
   if (previews.value.length) {
-    gameStatus.value = !gameStatus.value
-    togglePlay() // 開始播放音樂
-    setTimeout(() => {
-      stop()
-      run()
-    }, 4000);
-  } else {
-    alert('請先上傳圖片！')
+    currentIndex.value = -1
+    randomIndex()
   }
 }
 
@@ -156,34 +172,39 @@ const gameStart = () => {
   <div class="container-fluid">
     <div class="row">
 
-      <div class="col-12" v-if="imageIndex.length">
-        <button class="btn btn-lg btn-success" @click="gameStart()">{{ isPlaying ? '結束遊戲' : '開始遊戲' }}</button>
-
+      <div class="col-12">
+        <!-- music -->
         <audio ref="audioRef" :src="currentAudioSrc" @timeupdate="updateTime" @loadedmetadata="loadedMetadata"
           @play="isPlaying = true" @pause="isPlaying = false" @ended="isPlaying = false" preload="metadata"></audio>
 
-        <!-- <span> -->
-        <!-- <button class="btn btn-info" @click="togglePlay">{{ isPlaying ? 'II' : '>' }}</button> -->
-
-        <!-- 進度條 -->
-        <span class="process" v-if="currentAudioSrc">{{ Math.floor(Math.floor(currentTime) / Math.floor(duration) * 100)
-        }}%</span>
-        <!-- </span> -->
-      </div>
-
-      <div class="col-12">
-        <!-- <h1 class="h1" v-if="showCountDown">倒數 {{ showCountDown }} 秒！</h1>
-        <h1 class="h1" v-else>準備開始遊戲囉！</h1> -->
-
-        <!-- 上傳圖片 -->
+        <!-- upload images -->
         <input v-if="!previews.length" ref="uploadFileRef" type="file" name="imgUpload" multiple="multiple"
           @change="changeFile($event)" />
       </div>
+
+      <div class="col-12" id="option" v-if="imageIndex.length">
+
+        <button class="btn btn-sm btn-warning" @click="hardRefresh">更換題目</button>
+        <button class="btn btn-sm btn-danger" @click="replay" v-if="gameStatus">重新整理</button>
+        <button class="btn btn-sm btn-success" @click="gameStart" v-if="!gameStatus">開始遊戲</button>
+
+        <button class="btn btn-sm btn-outline-secondary process" disabled v-if="currentAudioSrc">進度 {{
+          Math.floor(Math.floor(currentTime) / Math.floor(duration) *
+            100)
+        }}%</button>
+
+        <div class="toast-container position-fixed top-50 start-50 translate-middle" v-if="currentTime >= duration">
+          <div id="toastGameOver" class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-body">GAME OVER!</div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
-    <div class="row show-area" v-if="imageIndex.length > 0 && gameStatus">
+    <div class="row image-area" v-if="imageIndex.length > 0 && gameStart">
       <template v-for="(i, index) in imageIndex" :key="index">
-        <div class="col-3" :class="`${currentIndex === index ? 'highlight' : 'show'}`">
+        <div class="col-3" :class="`${currentIndex === index ? 'highlight' : 'normal'}`">
           <img class="image-item" :src="previews[i]?.url" :alt="previews[i]?.name" />
         </div>
       </template>
@@ -193,6 +214,13 @@ const gameStart = () => {
 </template>
 
 <style scoped>
+#option .btn {
+  margin: 0px 10px;
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: bold;
+}
+
 .upload {
   position: fixed;
   top: 0px;
@@ -201,14 +229,14 @@ const gameStart = () => {
   opacity: 0;
 }
 
-.show-area {
-  margin-top: 20px;
+.image-area {
+  margin-top: 10px;
 }
 
-.show {
-  border: 6px solid #000;
-  width: 300px;
-  height: 300px;
+.normal {
+  border: 6px solid #555;
+  width: 350px;
+  height: 350px;
   overflow: hidden;
   margin: 0px 1px 1px 1px;
 }
@@ -223,15 +251,33 @@ const gameStart = () => {
 
 .highlight {
   border: 20px solid #f00;
-  width: 300px;
-  height: 300px;
+  width: 350px;
+  height: 350px;
   overflow: hidden;
   margin: 0px 1px 1px 1px;
 }
 
 .process {
-  margin-left: 20px;
-  font-size: 1.2rem;
-  font-weight: bold;
+  color: #000 !important;
+}
+
+.normal,
+.highlight {
+  padding-right: 0px !important;
+  padding-left: 0px !important;
+}
+
+.toast-container,
+.toast {
+  pointer-events: none;
+}
+
+.toast-body {
+  font-family: "Comic Sans MS";
+  font-size: 5em;
+  text-align: center;
+  color: white;
+  background-color: #ff0505;
+  pointer-events: none;
 }
 </style>
